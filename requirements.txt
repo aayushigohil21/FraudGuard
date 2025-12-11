@@ -1,6 +1,6 @@
-streamlit>=1.40.0,<1.41  # Latest stable; supports NumPy 2.x if you prefer
+streamlit>=1.40.0,<1.41
 pandas==2.2.3
-numpy==1.26.4            # Downgraded to 1.x; has 3.13 wheels, works with all your ML deps
+numpy==1.26.4
 joblib==1.4.2
 plotly==5.20.0
 requests==2.31.0
@@ -12,5 +12,5 @@ scikit-learn==1.5.2
 xgboost==2.1.1
 tensorflow-cpu==2.20.0
 
-pyarrow==17.0.0          # Upgraded; 3.13 wheels available (no source build)
-fastparquet==2024.9.0    # Upgraded; 3.13 wheels available
+pyarrow==17.0.0
+fastparquet==2024.11.0    # ← fixed version (or just delete this line)
