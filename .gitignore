@@ -1,0 +1,39 @@
+# === IGNORE LARGE PROJECT FOLDERS ===
+data/
+models/
+output/
+notebooks/catboost_info/
+
+# Ignore dataset files
+*.csv
+
+# Ignore model files
+*.pkl
+
+# === JUPYTER NOTEBOOK CACHE ===
+**/.ipynb_checkpoints/
+
+# === OUTPUT IMAGES ===
+*.jpg
+*.jpeg
+*.png
+
+# === STREAMLIT SECRETS ===
+.streamlit/secrets.toml
+
+# === VSCODE SETTINGS ===
+.vscode/
+
+# === PYTHON & SYSTEM FILES ===
+__pycache__/
+*.pyc
+*.pyo
+
+# === ENVIRONMENTS ===
+.env
+.venv/
+env/
+venv/
+
+# === LOG FILES ===
+*.log
