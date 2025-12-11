@@ -13,6 +13,9 @@ import plotly.graph_objects as go
 import gdown
 import os
 
+import os
+os.environ["PANDAS_PARQUET_ENGINE"] = "auto"
+
 # ==========================
 # THEME PALETTE (Mint & Teal Minimal)
 # ==========================
