@@ -10,6 +10,8 @@ from io import BytesIO
 import random
 import requests
 import plotly.graph_objects as go
+import gdown
+import os
 
 # ==========================
 # THEME PALETTE (Mint & Teal Minimal)
@@ -209,21 +211,43 @@ st.markdown('<h1 class="fintech-title">FraudGuard</h1>', unsafe_allow_html=True)
 # =====================================================
 # LOAD MODELS (unchanged)
 # =====================================================
+import gdown
+import os
+
+MODEL_URL = "https://drive.google.com/uc?id=1eNcxF3YLJRVWW_iXzElP8HPG12w8zCZu"
+FEATURES_URL = "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3"
+
+MODEL_PATH = "models/PRODUCTION_MODEL_R.pkl"
+FEATURES_PATH = "models/scaled_features.pkl"
+
+# Ensure folder exists
+os.makedirs("models", exist_ok=True)
+
+def download_if_missing(url, path):
+    if not os.path.exists(path):
+        gdown.download(url, path, quiet=False)
+
 @st.cache_resource
 def load_models():
-    bundle = joblib.load("models/PRODUCTION_MODEL_R.pkl")
-    df = pd.read_pickle("models/scaled_features.pkl")
+    # Download only if missing
+    download_if_missing(MODEL_URL, MODEL_PATH)
+    download_if_missing(FEATURES_URL, FEATURES_PATH)
+
+    bundle = joblib.load(MODEL_PATH)
+    df = pd.read_pickle(FEATURES_PATH)
+
     models = bundle["models"]
     top3 = bundle["top3_names"]
     scalers = bundle["norm_scalers"]
     weights = bundle["weights"]
     features = [c for c in df.columns if c != "Class"]
+
     normal_mean = df[df["Class"] == 0][features].mean().values.astype(np.float32)
     fraud_mean = df[df["Class"] == 1][features].mean().values.astype(np.float32)
+
     return models, top3, scalers, weights, features, normal_mean, fraud_mean
 
 models_dict, top3_models, scalers, weights, features, NORMAL_PROTO, FRAUD_PROTO = load_models()
-
 # =====================================================
 # PREDICTION & RULE BOOST (unchanged)
 # =====================================================
