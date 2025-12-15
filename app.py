@@ -240,7 +240,7 @@ def load_models():
         },
         "autoencoder": {
             "url": "https://drive.google.com/uc?id=1uHcR911V_4M-wsPIC4HaP_xmkjXZcrDh",
-            "path": "models"
+            "path": "models/autoencoder_savedmodel"
         },
         "copod": {
             "url": "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD",
@@ -250,15 +250,20 @@ def load_models():
 
     def download(url, path, is_folder=False):
         if is_folder:
-            # autoencoder_savedmodel is a FOLDER
-            if os.path.exists(os.path.join(path, "autoencoder_savedmodel")):
+            # if SavedModel already exists, do nothing
+            if os.path.exists(os.path.join(path, "saved_model.pb")):
                 return
-            gdown.download_folder(url, output=path, quiet=False)
+            os.makedirs("models", exist_ok=True)
+            gdown.download_folder(
+                url=url,
+                output="models",
+                quiet=False
+            )
         else:
-            # normal files (.pkl, .json)
             if os.path.exists(path):
                 return
             gdown.download(url, path, quiet=False)
+
 
     # ---- download everything ----
     for name, f in FILES.items():
@@ -267,6 +272,7 @@ def load_models():
             f["path"],
             is_folder=(name == "autoencoder")
         )
+
 
     # ---- load metadata ----
     bundle = joblib.load(FILES["bundle"]["path"])
@@ -286,9 +292,10 @@ def load_models():
     models_dict["XGBoost (Supervised)"] = xgb
 
     autoencoder = keras.models.load_model(
-    os.path.join(FILES["autoencoder"]["path"], "autoencoder_savedmodel"),
+    "models/autoencoder_savedmodel",
     compile=False
     )
+
 
     models_dict["Autoencoder"] = autoencoder
 
