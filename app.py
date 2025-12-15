@@ -215,21 +215,24 @@ st.markdown('<h1 class="fintech-title">FraudGuard</h1>', unsafe_allow_html=True)
 
 @st.cache_resource
 def load_models():
-
+    # -------- SAFE IMPORTS INSIDE CACHE --------
     import os
+    import time
+    import shutil
+    from glob import glob
+
     import gdown
     import joblib
     import pandas as pd
     import numpy as np
     from xgboost import XGBClassifier
-    import keras
-    from glob import glob # <-- Needed for the fix
-    import shutil # <-- Needed for robust folder deletion/renaming
+    from tensorflow import keras   # ✅ CORRECT keras import
 
+    # -------- BASE DIRECTORY --------
     os.makedirs("models", exist_ok=True)
 
     # =======================
-    # GOOGLE DRIVE FILES (The expected local path for Autoencoder is models/autoencoder_savedmodel)
+    # GOOGLE DRIVE FILES
     # =======================
     FILES = {
         "bundle": {
@@ -245,7 +248,7 @@ def load_models():
             "path": "models/xgb_model.json"
         },
         "autoencoder": {
-            "url": "https://drive.google.com/uc?id=1uHcR911V_4M-wsPIC4HaP_xmkjXZcrDh",
+            "url": "https://drive.google.com/drive/folders/1uHcR911V_4M-wsPIC4HaP_xmkjXZcrDh",
             "path": "models/autoencoder_savedmodel"
         },
         "copod": {
@@ -254,48 +257,50 @@ def load_models():
         }
     }
 
+    # =======================
+    # DOWNLOAD HELPER
+    # =======================
     def download(url, path, is_folder=False):
         if is_folder:
-            target_path = path # models/autoencoder_savedmodel
-            
-            # 1. Check if the target is already correctly populated
+            target_path = path
+
+            # ✔ already correctly downloaded
             if os.path.exists(os.path.join(target_path, "saved_model.pb")):
                 return
 
-            os.makedirs("models", exist_ok=True)
-            
-            # 2. Download the folder contents into 'models' directory. 
-            # gdown will typically create a subfolder (e.g., models/aut...model)
-            # or sometimes create a folder with the Drive folder ID.
-            gdown.download_folder(
-                url=url,
-                output="models",
-                quiet=True
-            )
-            
-            # 3. RENAME/MOVE LOGIC: Find the downloaded folder and rename it to the target path.
-            # Look for any folder inside 'models' that contains 'saved_model.pb'
-            downloaded_files = glob(os.path.join("models", "*", "saved_model.pb"))
-            
-            if downloaded_files:
-                # The actual downloaded path is the directory containing saved_model.pb
-                actual_downloaded_path = os.path.dirname(downloaded_files[0])
+            with st.spinner("Downloading Autoencoder model..."):
+                gdown.download_folder(
+                    url=url,
+                    output="models",
+                    quiet=True,
+                    use_cookies=False
+                )
 
-                if actual_downloaded_path != target_path:
-                    # If the target path exists (e.g., from a previous failed attempt), delete it first
-                    if os.path.exists(target_path):
-                        shutil.rmtree(target_path)
-                        
-                    # Rename/Move the folder to the target path
-                    os.rename(actual_downloaded_path, target_path)
+            # find actual downloaded folder
+            matches = glob(os.path.join("models", "**", "saved_model.pb"), recursive=True)
+            if not matches:
+                raise RuntimeError("Autoencoder download failed: saved_model.pb not found")
+
+            actual_path = os.path.dirname(matches[0])
+
+            if actual_path != target_path:
+                if os.path.exists(target_path):
+                    shutil.rmtree(target_path)
+                shutil.move(actual_path, target_path)
+
+            # final validation
+            required = ["saved_model.pb", "variables"]
+            for r in required:
+                if not os.path.exists(os.path.join(target_path, r)):
+                    raise RuntimeError(f"Autoencoder incomplete: missing {r}")
 
         else:
-            if os.path.exists(path):
-                return
-            gdown.download(url, path, quiet=True)
+            if not os.path.exists(path):
+                gdown.download(url, path, quiet=True)
 
-
-    # ---- download everything ----
+    # =======================
+    # DOWNLOAD ALL FILES
+    # =======================
     for name, f in FILES.items():
         download(
             f["url"],
@@ -303,41 +308,54 @@ def load_models():
             is_folder=(name == "autoencoder")
         )
 
-
-    # ---- load metadata ----
+    # =======================
+    # LOAD METADATA
+    # =======================
     bundle = joblib.load(FILES["bundle"]["path"])
-    top3 = bundle["top3_names"]
+    top3_models = bundle["top3_names"]
     scalers = bundle["norm_scalers"]
     weights = bundle["weights"]
 
-    # ---- load features ----
+    # =======================
+    # LOAD FEATURES
+    # =======================
     df = pd.read_pickle(FILES["features"]["path"])
     features = [c for c in df.columns if c != "Class"]
 
-    # ---- load models ----
+    # =======================
+    # LOAD MODELS
+    # =======================
     models_dict = {}
 
     xgb = XGBClassifier()
     xgb.load_model(FILES["xgb"]["path"])
     models_dict["XGBoost (Supervised)"] = xgb
 
-    # This line should now succeed because the download function guarantees the path
     autoencoder = keras.models.load_model(
-        "models/autoencoder_savedmodel",
+        FILES["autoencoder"]["path"],
         compile=False
     )
-
-
     models_dict["Autoencoder"] = autoencoder
 
     copod = joblib.load(FILES["copod"]["path"])
     models_dict["COPOD"] = copod
 
-    # ---- prototypes ----
-    normal_mean = df[df["Class"] == 0][features].mean().values.astype(np.float32)
-    fraud_mean = df[df["Class"] == 1][features].mean().values.astype(np.float32)
+    # =======================
+    # PROTOTYPES
+    # =======================
+    normal_proto = df[df["Class"] == 0][features].mean().values.astype(np.float32)
+    fraud_proto = df[df["Class"] == 1][features].mean().values.astype(np.float32)
 
-    return models_dict, top3, scalers, weights, features, normal_mean, fraud_mean
+    return (
+        models_dict,
+        top3_models,
+        scalers,
+        weights,
+        features,
+        normal_proto,
+        fraud_proto
+    )
+
 
 
 # Load models for use
