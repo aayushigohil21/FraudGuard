@@ -248,13 +248,21 @@ def load_models():
         }
     }
 
-    def download(url, path):
+    def download(url, path, is_folder = False):
         if not os.path.exists(path):
-            gdown.download_folder(url, path, quiet=False)
-
+            return 
+        
+        if is_folder:
+            gdown.download_folder(url, output=path, quiet=False)
+        else:
+            gdown.download(url, path, quiet=False)
     # ---- download everything ----
-    for f in FILES.values():
-        download(f["url"], f["path"])
+    for name, f in FILES.items():
+        if name == "autoencoder":
+            download(f["url"], f["path"], is_folder=True)
+        else:
+            download(f["url"], f["path"], is_folder=False)
+
 
     # ---- load metadata ----
     bundle = joblib.load(FILES["bundle"]["path"])
