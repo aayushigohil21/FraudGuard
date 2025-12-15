@@ -209,6 +209,10 @@ html, body, [data-testid="stAppViewContainer"] {{
 # =====================================================
 st.markdown('<h1 class="fintech-title">FraudGuard</h1>', unsafe_allow_html=True)
 #st.markdown('<div class="fintech-sub">Compact & balanced fraud monitoring — Mint & Teal Minimal</div>', unsafe_allow_html=True)
+# =====================================================
+# Corrected load_models function (includes robust autoencoder download fix)
+# =====================================================
+
 @st.cache_resource
 def load_models():
 
@@ -219,11 +223,13 @@ def load_models():
     import numpy as np
     from xgboost import XGBClassifier
     import keras
+    from glob import glob # <-- Needed for the fix
+    import shutil # <-- Needed for robust folder deletion/renaming
 
     os.makedirs("models", exist_ok=True)
 
     # =======================
-    # GOOGLE DRIVE FILES
+    # GOOGLE DRIVE FILES (The expected local path for Autoencoder is models/autoencoder_savedmodel)
     # =======================
     FILES = {
         "bundle": {
@@ -250,19 +256,43 @@ def load_models():
 
     def download(url, path, is_folder=False):
         if is_folder:
-            # if SavedModel already exists, do nothing
-            if os.path.exists(os.path.join(path, "saved_model.pb")):
+            target_path = path # models/autoencoder_savedmodel
+            
+            # 1. Check if the target is already correctly populated
+            if os.path.exists(os.path.join(target_path, "saved_model.pb")):
                 return
+
             os.makedirs("models", exist_ok=True)
+            
+            # 2. Download the folder contents into 'models' directory. 
+            # gdown will typically create a subfolder (e.g., models/aut...model)
+            # or sometimes create a folder with the Drive folder ID.
             gdown.download_folder(
                 url=url,
                 output="models",
-                quiet=False
+                quiet=True
             )
+            
+            # 3. RENAME/MOVE LOGIC: Find the downloaded folder and rename it to the target path.
+            # Look for any folder inside 'models' that contains 'saved_model.pb'
+            downloaded_files = glob(os.path.join("models", "*", "saved_model.pb"))
+            
+            if downloaded_files:
+                # The actual downloaded path is the directory containing saved_model.pb
+                actual_downloaded_path = os.path.dirname(downloaded_files[0])
+
+                if actual_downloaded_path != target_path:
+                    # If the target path exists (e.g., from a previous failed attempt), delete it first
+                    if os.path.exists(target_path):
+                        shutil.rmtree(target_path)
+                        
+                    # Rename/Move the folder to the target path
+                    os.rename(actual_downloaded_path, target_path)
+
         else:
             if os.path.exists(path):
                 return
-            gdown.download(url, path, quiet=False)
+            gdown.download(url, path, quiet=True)
 
 
     # ---- download everything ----
@@ -291,9 +321,10 @@ def load_models():
     xgb.load_model(FILES["xgb"]["path"])
     models_dict["XGBoost (Supervised)"] = xgb
 
+    # This line should now succeed because the download function guarantees the path
     autoencoder = keras.models.load_model(
-    "models/autoencoder_savedmodel",
-    compile=False
+        "models/autoencoder_savedmodel",
+        compile=False
     )
 
 
@@ -307,7 +338,6 @@ def load_models():
     fraud_mean = df[df["Class"] == 1][features].mean().values.astype(np.float32)
 
     return models_dict, top3, scalers, weights, features, normal_mean, fraud_mean
-
 
 
 # Load models for use
