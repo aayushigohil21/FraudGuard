@@ -115,28 +115,27 @@ A complete ML + AI-powered system for fraud monitoring, analysis, and insights.
 *Folder Structure
 
 FraudGuard/
-│
 ├── app.py
 ├── requirements.txt
-│
-├── models/
-│   ├── PRODUCTION_MODEL_R.pkl
-│   └── scaled_features.pkl
-│
-├── data/
-│   └── creditcard.csv (optional)
-│
-├── notebooks/
-│   ├── EDA.ipynb
-│   └── training.ipynb
-│
-├── output/
-│   ├── PR curves, charts, analysis images
-│
+├── runtime.txt
+├── README.md
 ├── .streamlit/
 │   └── secrets.toml
-│
-└── README.md
+├── data/
+│   └── processed/
+│       └── scaled_features.pkl
+├── models/             
+│   ├── model_bundle.pkl  
+│   ├── xgb_model.json
+│   ├── autoencoder.keras
+│   ├── iso.pkl
+│   └── lof.pkl          
+├── output/            
+│   └── models/
+│       └── copod.pkl    
+└── notebooks/
+    ├── EDA.ipynb
+    └── training.ipyn
 
 *Installation & Usage
 
