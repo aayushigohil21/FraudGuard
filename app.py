@@ -257,14 +257,11 @@ def load_models():
         }
     }
 
-    # =======================
-    # DOWNLOAD HELPER
-    # =======================
     def download(url, path, is_folder=False):
         if is_folder:
-            target_path = path
+            target_path = path  # models/autoencoder_savedmodel
 
-            # ✔ already correctly downloaded
+            # ✅ Already correct
             if os.path.exists(os.path.join(target_path, "saved_model.pb")):
                 return
 
@@ -276,19 +273,42 @@ def load_models():
                     use_cookies=False
                 )
 
-            # find actual downloaded folder
+            # 🔍 find saved_model.pb anywhere under models
             matches = glob(os.path.join("models", "**", "saved_model.pb"), recursive=True)
             if not matches:
                 raise RuntimeError("Autoencoder download failed: saved_model.pb not found")
 
             actual_path = os.path.dirname(matches[0])
 
-            if actual_path != target_path:
+            # ===============================
+            # 🔒 CRITICAL SAFETY FIX
+            # ===============================
+            if os.path.abspath(actual_path) == os.path.abspath("models"):
+                # gdown dumped files directly into models/
                 if os.path.exists(target_path):
                     shutil.rmtree(target_path)
-                shutil.move(actual_path, target_path)
 
-            # final validation
+                os.makedirs(target_path, exist_ok=True)
+
+                for item in os.listdir("models"):
+                    src = os.path.join("models", item)
+                    dst = os.path.join(target_path, item)
+
+                    if item == "autoencoder_savedmodel":
+                        continue
+                    if os.path.isdir(src):
+                        shutil.move(src, dst)
+                    elif item.endswith(".pb"):
+                        shutil.move(src, dst)
+
+            else:
+                # normal case: move folder
+                if actual_path != target_path:
+                    if os.path.exists(target_path):
+                        shutil.rmtree(target_path)
+                    shutil.move(actual_path, target_path)
+
+            # ✅ Final validation
             required = ["saved_model.pb", "variables"]
             for r in required:
                 if not os.path.exists(os.path.join(target_path, r)):
