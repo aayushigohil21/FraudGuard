@@ -13,7 +13,6 @@ import plotly.graph_objects as go
 import gdown
 import os
 
-import os
 os.environ["PANDAS_PARQUET_ENGINE"] = "auto"
 
 # ==========================
@@ -212,16 +211,20 @@ st.markdown('<h1 class="fintech-title">FraudGuard</h1>', unsafe_allow_html=True)
 #st.markdown('<div class="fintech-sub">Compact & balanced fraud monitoring — Mint & Teal Minimal</div>', unsafe_allow_html=True)
 
 # =====================================================
-# LOAD MODELS (unchanged)
+# LOAD MODELS (UPDATED WITH COPOD DOWNLOAD)
 # =====================================================
 import gdown
 import os
 
-MODEL_URL = "https://drive.google.com/uc?id=1eNcxF3YLJRVWW_iXzElP8HPG12w8zCZu"
-FEATURES_URL = "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3"
+# URLs
+MODEL_URL = "https://drive.google.com/uc?id=1eNcxF3YLJRVWW_iXzElP8HPG12w8zCZu"   # PRODUCTION_MODEL_R.pkl
+FEATURES_URL = "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3"  # scaled_features.pkl
+COPOD_URL = "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD"    # copod.pkl
 
+# Paths
 MODEL_PATH = "models/PRODUCTION_MODEL_R.pkl"
 FEATURES_PATH = "models/scaled_features.pkl"
+COPOD_PATH = "models/copod.pkl"
 
 # Ensure folder exists
 os.makedirs("models", exist_ok=True)
@@ -232,25 +235,69 @@ def download_if_missing(url, path):
 
 @st.cache_resource
 def load_models():
-    # Download only if missing
-    download_if_missing(MODEL_URL, MODEL_PATH)
-    download_if_missing(FEATURES_URL, FEATURES_PATH)
 
-    bundle = joblib.load(MODEL_PATH)
-    df = pd.read_pickle(FEATURES_PATH)
+    # ---- LOAD METADATA ----
+    bundle = joblib.load("models/model_bundle.pkl")
 
-    models = bundle["models"]
+    threshold = bundle["threshold"]
     top3 = bundle["top3_names"]
     scalers = bundle["norm_scalers"]
     weights = bundle["weights"]
+
+    # ---- DOWNLOAD SCALED FEATURES ----
+    FEATURES_URL = "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3"
+    FEATURES_PATH = "models/scaled_features.pkl"
+
+    if not os.path.exists(FEATURES_PATH):
+        gdown.download(FEATURES_URL, FEATURES_PATH, quiet=False)
+
+    df = pd.read_pickle(FEATURES_PATH)
     features = [c for c in df.columns if c != "Class"]
 
+    # ---- LOAD MODELS ----
+
+    # XGBoost
+    from xgboost import XGBClassifier
+    xgb = XGBClassifier()
+    xgb.load_model("models/xgb_model.json")
+
+    # Autoencoder
+    from keras.models import load_model
+    autoencoder = load_model("models/autoencoder.keras")
+
+    # COPOD (from Google Drive)
+    COPOD_URL = "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD"
+    COPOD_PATH = "models/copod.pkl"
+
+    if not os.path.exists(COPOD_PATH):
+        gdown.download(COPOD_URL, COPOD_PATH, quiet=False)
+
+    copod = joblib.load(COPOD_PATH)
+
+    # Isolation Forest
+    iso = joblib.load("models/iso.pkl")
+
+    # LOF
+    lof = joblib.load("models/lof.pkl")
+
+    models_dict = {
+        "XGBoost (Supervised)": xgb,
+        "Autoencoder": autoencoder,
+        "COPOD": copod,
+        "Isolation Forest": iso,
+        "LOF": lof
+    }
+
+    # Prototypes
     normal_mean = df[df["Class"] == 0][features].mean().values.astype(np.float32)
     fraud_mean = df[df["Class"] == 1][features].mean().values.astype(np.float32)
 
-    return models, top3, scalers, weights, features, normal_mean, fraud_mean
+    return models_dict, top3, scalers, weights, features, normal_mean, fraud_mean
 
+
+# Load models for use
 models_dict, top3_models, scalers, weights, features, NORMAL_PROTO, FRAUD_PROTO = load_models()
+
 # =====================================================
 # PREDICTION & RULE BOOST (unchanged)
 # =====================================================
