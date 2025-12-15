@@ -209,90 +209,82 @@ html, body, [data-testid="stAppViewContainer"] {{
 # =====================================================
 st.markdown('<h1 class="fintech-title">FraudGuard</h1>', unsafe_allow_html=True)
 #st.markdown('<div class="fintech-sub">Compact & balanced fraud monitoring — Mint & Teal Minimal</div>', unsafe_allow_html=True)
-
-# =====================================================
-# LOAD MODELS (UPDATED WITH COPOD DOWNLOAD)
-# =====================================================
-import gdown
-import os
-
-# URLs
-MODEL_URL = "https://drive.google.com/uc?id=1eNcxF3YLJRVWW_iXzElP8HPG12w8zCZu"   # PRODUCTION_MODEL_R.pkl
-FEATURES_URL = "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3"  # scaled_features.pkl
-COPOD_URL = "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD"    # copod.pkl
-
-# Paths
-MODEL_PATH = "models/PRODUCTION_MODEL_R.pkl"
-FEATURES_PATH = "models/scaled_features.pkl"
-COPOD_PATH = "models/copod.pkl"
-
-# Ensure folder exists
-os.makedirs("models", exist_ok=True)
-
-def download_if_missing(url, path):
-    if not os.path.exists(path):
-        gdown.download(url, path, quiet=False)
-
 @st.cache_resource
 def load_models():
 
-    # ---- LOAD METADATA ----
-    bundle = joblib.load("models/model_bundle.pkl")
+    import os
+    import gdown
+    import joblib
+    import pandas as pd
+    import numpy as np
+    from xgboost import XGBClassifier
+    import keras
 
-    threshold = bundle["threshold"]
+    os.makedirs("models", exist_ok=True)
+
+    # =======================
+    # GOOGLE DRIVE FILES
+    # =======================
+    FILES = {
+        "bundle": {
+            "url": "https://drive.google.com/uc?id=17PzAxmCehh_nGLT1gchjmkyEVDojdG5f",
+            "path": "models/model_bundle.pkl"
+        },
+        "features": {
+            "url": "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3",
+            "path": "models/scaled_features.pkl"
+        },
+        "xgb": {
+            "url": "https://drive.google.com/uc?id=1rTuOkxINXJj7QWxASuD5Far_kAyJb-A6",
+            "path": "models/xgb_model.json"
+        },
+        "autoencoder": {
+            "url": "https://drive.google.com/uc?id=1dq53faoGYtRR-p0jWR91hOyavAT-EE7I",
+            "path": "models/autoencoder.keras"
+        },
+        "copod": {
+            "url": "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD",
+            "path": "models/copod.pkl"
+        }
+    }
+
+    def download(url, path):
+        if not os.path.exists(path):
+            gdown.download(url, path, quiet=False)
+
+    # ---- download everything ----
+    for f in FILES.values():
+        download(f["url"], f["path"])
+
+    # ---- load metadata ----
+    bundle = joblib.load(FILES["bundle"]["path"])
     top3 = bundle["top3_names"]
     scalers = bundle["norm_scalers"]
     weights = bundle["weights"]
 
-    # ---- DOWNLOAD SCALED FEATURES ----
-    FEATURES_URL = "https://drive.google.com/uc?id=1BQmhFK2TqM2HwwhW3HJo5T8pYvyRbdM3"
-    FEATURES_PATH = "models/scaled_features.pkl"
-
-    if not os.path.exists(FEATURES_PATH):
-        gdown.download(FEATURES_URL, FEATURES_PATH, quiet=False)
-
-    df = pd.read_pickle(FEATURES_PATH)
+    # ---- load features ----
+    df = pd.read_pickle(FILES["features"]["path"])
     features = [c for c in df.columns if c != "Class"]
 
-    # ---- LOAD MODELS ----
+    # ---- load models ----
+    models_dict = {}
 
-    # XGBoost
-    from xgboost import XGBClassifier
     xgb = XGBClassifier()
-    xgb.load_model("models/xgb_model.json")
+    xgb.load_model(FILES["xgb"]["path"])
+    models_dict["XGBoost (Supervised)"] = xgb
 
-    # Autoencoder
-    from keras.models import load_model
-    autoencoder = load_model("models/autoencoder.keras")
+    autoencoder = keras.models.load_model(FILES["autoencoder"]["path"])
+    models_dict["Autoencoder"] = autoencoder
 
-    # COPOD (from Google Drive)
-    COPOD_URL = "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD"
-    COPOD_PATH = "models/copod.pkl"
+    copod = joblib.load(FILES["copod"]["path"])
+    models_dict["COPOD"] = copod
 
-    if not os.path.exists(COPOD_PATH):
-        gdown.download(COPOD_URL, COPOD_PATH, quiet=False)
-
-    copod = joblib.load(COPOD_PATH)
-
-    # Isolation Forest
-    iso = joblib.load("models/iso.pkl")
-
-    # LOF
-    lof = joblib.load("models/lof.pkl")
-
-    models_dict = {
-        "XGBoost (Supervised)": xgb,
-        "Autoencoder": autoencoder,
-        "COPOD": copod,
-        "Isolation Forest": iso,
-        "LOF": lof
-    }
-
-    # Prototypes
+    # ---- prototypes ----
     normal_mean = df[df["Class"] == 0][features].mean().values.astype(np.float32)
     fraud_mean = df[df["Class"] == 1][features].mean().values.astype(np.float32)
 
     return models_dict, top3, scalers, weights, features, normal_mean, fraud_mean
+
 
 
 # Load models for use
