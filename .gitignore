@@ -2,16 +2,19 @@
 data/
 models/
 output/
-notebooks/catboost_info/
+notebooks/
 
 # Ignore dataset files
 *.csv
 
 # Ignore model files
 *.pkl
+*.keras
+*.json
 
 # === JUPYTER NOTEBOOK CACHE ===
 **/.ipynb_checkpoints/
+*.ipynb
 
 # === OUTPUT IMAGES ===
 *.jpg
