@@ -239,8 +239,8 @@ def load_models():
             "path": "models/xgb_model.json"
         },
         "autoencoder": {
-            "url": "https://drive.google.com/uc?id=1dq53faoGYtRR-p0jWR91hOyavAT-EE7I",
-            "path": "models/autoencoder.keras"
+            "url": "https://drive.google.com/uc?id=1uHcR911V_4M-wsPIC4HaP_xmkjXZcrDh",
+            "path": "models/autoencoder_savedmodel"
         },
         "copod": {
             "url": "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD",
@@ -250,7 +250,7 @@ def load_models():
 
     def download(url, path):
         if not os.path.exists(path):
-            gdown.download(url, path, quiet=False)
+            gdown.download_folder(url, path, quiet=False)
 
     # ---- download everything ----
     for f in FILES.values():
