@@ -249,7 +249,7 @@ def load_models():
     }
 
     def download(url, path, is_folder = False):
-        if not os.path.exists(path):
+        if os.path.exists(path):
             return 
         
         if is_folder:
