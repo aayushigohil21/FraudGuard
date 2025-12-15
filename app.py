@@ -273,7 +273,10 @@ def load_models():
     xgb.load_model(FILES["xgb"]["path"])
     models_dict["XGBoost (Supervised)"] = xgb
 
-    autoencoder = keras.models.load_model(FILES["autoencoder"]["path"])
+    autoencoder = keras.models.load_model(
+    FILES["autoencoder"]["path"],
+    compile=False
+    )
     models_dict["Autoencoder"] = autoencoder
 
     copod = joblib.load(FILES["copod"]["path"])
