@@ -240,7 +240,7 @@ def load_models():
         },
         "autoencoder": {
             "url": "https://drive.google.com/uc?id=1uHcR911V_4M-wsPIC4HaP_xmkjXZcrDh",
-            "path": "models/autoencoder_savedmodel"
+            "path": "models"
         },
         "copod": {
             "url": "https://drive.google.com/uc?id=15wWaZJ73H8FDJwzTVzUS_6gdBETH8oJD",
@@ -248,21 +248,25 @@ def load_models():
         }
     }
 
-    def download(url, path, is_folder = False):
-        if os.path.exists(path):
-            return 
-        
+    def download(url, path, is_folder=False):
         if is_folder:
+            # autoencoder_savedmodel is a FOLDER
+            if os.path.exists(os.path.join(path, "autoencoder_savedmodel")):
+                return
             gdown.download_folder(url, output=path, quiet=False)
         else:
+            # normal files (.pkl, .json)
+            if os.path.exists(path):
+                return
             gdown.download(url, path, quiet=False)
+
     # ---- download everything ----
     for name, f in FILES.items():
-        if name == "autoencoder":
-            download(f["url"], f["path"], is_folder=True)
-        else:
-            download(f["url"], f["path"], is_folder=False)
-
+        download(
+            f["url"],
+            f["path"],
+            is_folder=(name == "autoencoder")
+        )
 
     # ---- load metadata ----
     bundle = joblib.load(FILES["bundle"]["path"])
